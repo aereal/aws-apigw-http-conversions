@@ -6,11 +6,13 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 )
 
 func TestFromHTTPResponse(t *testing.T) {
+	now := time.Now()
 	tests := []struct {
 		name    string
 		handler http.Handler
@@ -20,13 +22,60 @@ func TestFromHTTPResponse(t *testing.T) {
 		{
 			name: "OK",
 			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("date", now.Format(http.TimeFormat))
 				fmt.Fprintln(w, "OK")
 			}),
 			want: &events.APIGatewayV2HTTPResponse{
-				StatusCode:        200,
-				Headers:           map[string]string{},
+				StatusCode: 200,
+				Headers: map[string]string{
+					"Content-Length": "3",
+					"Content-Type":   "text/plain; charset=utf-8",
+					"Date":           now.Format(http.TimeFormat),
+				},
 				MultiValueHeaders: map[string][]string{},
 				Body:              "OK\n",
+			},
+			wantErr: false,
+		},
+		{
+			name: "header",
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("date", now.Format(http.TimeFormat))
+				w.Header().Set("cache-control", "private")
+				fmt.Fprintln(w, "OK")
+			}),
+			want: &events.APIGatewayV2HTTPResponse{
+				StatusCode: 200,
+				Headers: map[string]string{
+					"Content-Length": "3",
+					"Content-Type":   "text/plain; charset=utf-8",
+					"Cache-Control":  "private",
+					"Date":           now.Format(http.TimeFormat),
+				},
+				MultiValueHeaders: map[string][]string{},
+				Body:              "OK\n",
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple header",
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("date", now.Format(http.TimeFormat))
+				w.Header().Add("cache-control", "private")
+				w.Header().Add("cache-control", "no-cache")
+				fmt.Fprintln(w, "OK")
+			}),
+			want: &events.APIGatewayV2HTTPResponse{
+				StatusCode: 200,
+				Headers: map[string]string{
+					"Content-Length": "3",
+					"Content-Type":   "text/plain; charset=utf-8",
+					"Date":           now.Format(http.TimeFormat),
+				},
+				MultiValueHeaders: map[string][]string{
+					"Cache-Control": {"private", "no-cache"},
+				},
+				Body: "OK\n",
 			},
 			wantErr: false,
 		},

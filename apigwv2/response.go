@@ -19,5 +19,13 @@ func FromHTTPResponse(resp *http.Response) (*events.APIGatewayV2HTTPResponse, er
 		StatusCode:        resp.StatusCode,
 		Body:              string(b),
 	}
+	for k := range resp.Header {
+		xs := resp.Header.Values(k)
+		if len(xs) == 1 {
+			gwresp.Headers[k] = xs[0]
+		} else {
+			gwresp.MultiValueHeaders[k] = xs
+		}
+	}
 	return gwresp, nil
 }
